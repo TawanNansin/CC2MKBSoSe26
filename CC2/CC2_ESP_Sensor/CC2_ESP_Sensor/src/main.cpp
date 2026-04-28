@@ -70,7 +70,7 @@ void loop() {
       Serial.println("Sensor activated on pin!");
       bleKeyboard.press(KEY_LEFT_GUI);
       bleKeyboard.press(KEY_LEFT_SHIFT);
-      bleKeyboard.press('d');
+      bleKeyboard.press(KEY_MEDIA_PLAY_PAUSE);
       delay(100);
       bleKeyboard.releaseAll();
     }
