@@ -25,7 +25,7 @@ function setup() {
   
   // Try to load the music
   soundFormats('mp3', 'ogg');
-  bgMusic = loadSound('CloseInTheDistance.mp3', 
+  bgMusic = loadSound('assets/CloseInTheDistance.mp3', 
     () => { 
       musicLoaded = true; 
       muteBtn.html('MUSIC READY (Click Gen)'); 
@@ -35,6 +35,7 @@ function setup() {
       musicLoaded = false; 
       muteBtn.html('MUSIC NOT FOUND (404)'); 
       muteBtn.style('background', '#c62828'); // Red for error
+      
     }
   );
 
