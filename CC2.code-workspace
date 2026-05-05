@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "CC2"
+		},
+		{
+			"name": "CC2_ESP_MicroController",
+			"path": "../../IoT/CC2/CC2_ESP_MicroController"
+		},
+		{
+			"name": "CC2_ESP_Sensor",
+			"path": "CC2/CC2_ESP_Sensor/CC2_ESP_Sensor"
+		},
+		{
+			"path": "CC2/CC2_ESP_Sensor/Generative Design"
+		}
+	],
+	"settings": {}
+}
