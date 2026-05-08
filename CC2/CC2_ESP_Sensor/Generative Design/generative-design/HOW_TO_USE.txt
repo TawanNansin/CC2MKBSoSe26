@@ -1,0 +1,14 @@
+HOW TO USE:
+
+Press "RANDOMIZE WORLD" to generate a basic planet.
+By default the planet will generate in FAST mode.
+
+Hold Right Mouse Button and drag across the screen to Zoom / Move around the 3D scene.
+
+Press "HD" to render the planet in higher definition quality. - CAUTION: MAY CAUSE LAG ON LOWER END DEVICES.
+
+You can mute the music on the top left button of the application.
+
+Adjust parameter accordingly to generate the planet with the sliders.
+
+Created with assistance of Gemini AI using p5.js 
