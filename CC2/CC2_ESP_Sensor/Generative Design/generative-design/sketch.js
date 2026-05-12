@@ -1,211 +1,100 @@
-// --- Nebula Logic State ---
-let innerGasTexture, outerGasTexture; 
-let currentSeed;    
-let isGenerating = false;
-let isHD = false; 
-
-// Harmony Colors
-let gasColor1, gasColor2, gasColor3;
-
-let bgMusic;
-let musicLoaded = false;
-let musicStarted = false;
-
-let stars = []; 
-
-// UI Elements
-let roughnessSlider, densitySlider, swirlSlider, detailSlider, coverageSlider, muteBtn;
+// --- Cosmic Environment State ---
+let stars = [];
+const STAR_COUNT = 1200;
+const CLUSTER_COUNT = 8; 
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
   
-  // High-def textures for gas clouds
-  innerGasTexture = createGraphics(1024, 512);
-  outerGasTexture = createGraphics(1024, 512);
-  currentSeed = floor(random(1000000));
-
-  // Initialize Palette
-  randomizeColors();
-
-  // Static Starfield (placed far away)
-  for (let i = 0; i < 800; i++) {
-    stars.push(p5.Vector.random3D().mult(width * 3));
-  }
-
-  setupUI();
+  // This is the "Secret Sauce" for Bloom in p5.js WebGL
+  // blendMode(ADD) makes colors stack and glow where they overlap
+  // Note: We apply this in the draw loop, but it's good to keep in mind!
   
-  soundFormats('mp3', 'ogg');
-  bgMusic = loadSound('assets/CloseInTheDistance.mp3', 
-    () => { musicLoaded = true; muteBtn.html('MUSIC READY'); muteBtn.style('background', '#2e7d32'); },
-    () => { musicLoaded = false; muteBtn.html('MUSIC NOT FOUND'); muteBtn.style('background', '#c62828'); }
-  );
-
-  generateNebula();
+  generateConstellations();
 }
 
-/**
- * Generates a harmonious color palette using HSB logic.
- * This ensures the colors always look "cosmic" and not muddy.
- */
-function randomizeColors() {
-  // Temporary switch to HSB to pick colors
-  push();
-  colorMode(HSB, 360, 100, 100);
+function generateConstellations() {
+  stars = [];
   
-  let baseHue = random(360);
-  // Pick analogous colors (shifted hues) for harmony
-  gasColor1 = color(baseHue, 90, 30);                // Dark deep gas
-  gasColor2 = color((baseHue + 30) % 360, 80, 70);   // Glowing mid-tones
-  gasColor3 = color((baseHue + 60) % 360, 30, 100);  // Bright highlights
-  pop(); 
-}
-
-// FBm Noise Engine
-function fractalNoise(x, y, z, octaves, persistence) {
-  let total = 0;
-  let freq = 1;
-  let amp = 1;
-  let maxVal = 0;
-  for (let i = 0; i < octaves; i++) {
-    total += noise(x * freq, y * freq, z * freq) * amp;
-    maxVal += amp;
-    amp *= persistence;
-    freq *= 2.0;
+  for (let i = 0; i < CLUSTER_COUNT; i++) {
+    // Pick a starting point and a direction for a "star ribbon"
+    let startPos = p5.Vector.random3D().mult(random(800, 1500));
+    let direction = p5.Vector.random3D().mult(random(200, 500));
+    
+    let groupSize = floor(random(40, 100));
+    
+    for (let j = 0; j < groupSize; j++) {
+      // Interpolate along the direction to create a "line" or "cloud"
+      let t = j / groupSize;
+      let pathPos = p5.Vector.lerp(createVector(0,0,0), direction, t);
+      
+      // Add some "noise" so the line isn't perfectly straight
+      let noiseOffset = createVector(
+        randomGaussian(0, 100),
+        randomGaussian(0, 100),
+        randomGaussian(0, 100)
+      );
+      
+      let finalPos = p5.Vector.add(startPos, pathPos).add(noiseOffset);
+      
+      stars.push({
+        pos: finalPos,
+        size: random(0.5, 3.5),
+        // Use HSB-style logic for color variety (some blue, some white, some gold)
+        col: color(random(180, 255), random(200, 255), 255), 
+        pulseSpeed: random(0.01, 0.05),
+        offset: random(TWO_PI)
+      });
+    }
   }
-  return total / maxVal;
 }
 
 function draw() {
-  background(2, 4, 12); 
+  background(2, 3, 10); // Very dark blue/black
   
-  // 1. Draw Starfield
-  push();
-  noLights();
-  strokeWeight(1.5);
-  for (let i = 0; i < stars.length; i++) {
-    stroke(255, random(150, 255)); 
-    point(stars[i].x, stars[i].y, stars[i].z);
-  }
-  pop();
+  // Enables the "Bloom" look by adding pixel values together
+  blendMode(ADD); 
+  
+  orbitControl(1, 1, 0.1);
 
-  orbitControl(); 
-  ambientLight(200); // Gas should look "emissive"
-
-  // 2. OUTER NEBULA LAYER
-  push();
-  texture(outerGasTexture);
-  noStroke();
-  rotateY(frameCount * 0.0002); 
-  sphere(width * 2.2, 64, 64);
-  pop();
-
-  // 3. INNER NEBULA LAYER (Swirls closer)
-  push();
-  texture(innerGasTexture);
-  noStroke();
-  rotateY(-frameCount * 0.0004); 
-  sphere(width * 1.8, 64, 64);
-  pop();
+  drawStars();
+  
+  // Reset blend mode for any UI or non-glowing elements if you add them later
+  blendMode(BLEND); 
 }
 
-function renderWorld() {
-  renderLayer(innerGasTexture, 0.8);
-  renderLayer(outerGasTexture, 1.4);
+function drawStars() {
+  noFill();
+  
+  for (let s of stars) {
+    push();
+    translate(s.pos.x, s.pos.y, s.pos.z);
+    
+    let pulse = sin(frameCount * s.pulseSpeed + s.offset);
+    let intensity = map(pulse, -1, 1, 0.5, 1.2);
+    
+    // 1. THE OUTER RADIANCE (The Bloom)
+    // We draw a large, low-opacity point. With blendMode(ADD),
+    // these overlap to create a soft, ethereal fog.
+    stroke(red(s.col), green(s.col), blue(s.col), 40 * intensity);
+    strokeWeight(s.size * 6); 
+    point(0, 0);
+
+    // 2. THE CORE (The sharp star)
+    stroke(255, 255, 255, 220 * intensity);
+    strokeWeight(s.size);
+    point(0, 0);
+    
+    pop();
+  }
 }
 
-function renderLayer(pg, scaleMod) {
-  pg.clear();
-  pg.loadPixels();
-  noiseSeed(currentSeed + (scaleMod * 500));
-
-  let roughness = roughnessSlider.value();
-  let density = densitySlider.value();
-  let swirl = swirlSlider.value();
-  let detail = detailSlider.value();
-  let coverage = coverageSlider.value();
-  let sOff = currentSeed * 0.05;
-
-  for (let y = 0; y < pg.height; y++) {
-    for (let x = 0; x < pg.width; x++) {
-      let theta = (x / pg.width) * TWO_PI;
-      let phi = (y / pg.height) * PI;
-      let nx = cos(theta) * sin(phi) + sOff;
-      let ny = sin(theta) * sin(phi) + sOff;
-      let nz = cos(phi) + sOff;
-
-      let ns = roughness * 60 * scaleMod;
-      
-      // DOMAIN WARPING (The Swirl Math)
-      let ox = fractalNoise(nx * ns, ny * ns, nz * ns, 3, 0.5) * swirl;
-      let oy = fractalNoise((nx + 5) * ns, (ny + 5) * ns, nz * ns, 3, 0.5) * swirl;
-      
-      let v = fractalNoise((nx + ox) * ns, (ny + oy) * ns, nz * ns, detail, 0.5);
-
-      // Transparency and Color Mapping
-      let alpha = map(v, coverage, 1, 0, 255, true);
-      let col;
-      
-      if (v > 0.75) {
-        col = lerpColor(gasColor2, gasColor3, map(v, 0.75, 1, 0, 1));
-      } else {
-        col = lerpColor(gasColor1, gasColor2, map(v, 0, 0.75, 0, 1));
-      }
-
-      pg.set(x, y, color(red(col), green(col), blue(col), alpha * density));
-    }
-  }
-  pg.updatePixels();
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
 
-function setupUI() {
-  let ui = createDiv('').position(20, 20);
-  ui.style('color', 'white').style('background', 'rgba(0,0,0,0.85)').style('padding', '20px').style('display', 'flex').style('flex-direction', 'column').style('gap', '10px').style('width', '220px').style('font-family', 'sans-serif').style('border-radius', '10px');
-
-  muteBtn = createButton('MUSIC: LOADING...').parent(ui);
-  muteBtn.style('padding', '8px').style('color', 'white').style('border', 'none').style('border-radius', '5px').style('cursor', 'pointer');
-  
-  function addS(label, min, max, val, step) {
-    createDiv(label).parent(ui).style('font-size', '10px').style('font-weight', 'bold');
-    let s = createSlider(min, max, val, step).parent(ui);
-    s.style('width', '100%');
-    return s;
+function keyPressed() {
+  if (key === 'r' || key === 'R') {
+    generateConstellations();
   }
-
-  roughnessSlider = addS('NEBULA ROUGHNESS', 0.01, 0.25, 0.06, 0.01);
-  densitySlider = addS('GAS DENSITY', 0.1, 2.0, 1.0, 0.1);
-  swirlSlider = addS('SWIRLINESS', 0, 3, 1.2, 0.1);
-  detailSlider = addS('FRACTAL DETAIL', 4, 10, 6, 1);
-  coverageSlider = addS('GAS COVERAGE', 0.1, 0.7, 0.4, 0.01);
-
-  let btnRow = createDiv('').parent(ui).style('display', 'flex').style('gap', '5px');
-  createButton('FAST').parent(btnRow).style('flex','1').mousePressed(() => { isHD = false; generateNebula(); });
-  createButton('HD').parent(btnRow).style('flex','1').mousePressed(() => { isHD = true; generateNebula(); });
-  
-  createButton('RANDOMIZE EVERYTHING').parent(ui).style('padding', '10px').style('background', '#2c3e50').style('color', 'white').mousePressed(() => { 
-    currentSeed = floor(random(1000000)); 
-    randomizeColors();
-    generateNebula(); 
-  });
-}
-
-function generateNebula() {
-  if (musicLoaded && !musicStarted) {
-    bgMusic.loop();
-    bgMusic.setVolume(0.4);
-    musicStarted = true;
-    muteBtn.html('MUTE MUSIC');
-  }
-
-  if (isGenerating) return; 
-  isGenerating = true;
-  
-  let resX = isHD ? 1024 : 512; 
-  let resY = isHD ? 512 : 256;
-  innerGasTexture.resizeCanvas(resX, resY);
-  outerGasTexture.resizeCanvas(resX, resY);
-
-  setTimeout(() => {
-    renderWorld();
-    isGenerating = false;
-  }, 50);
 }
