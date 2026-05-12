@@ -50,17 +50,15 @@ function generateConstellations() {
 }
 
 function draw() {
-  background(2, 3, 10); // Very dark blue/black
-  
-  // Enables the "Bloom" look by adding pixel values together
-  blendMode(ADD); 
+  // Use a dark background
+  background(5, 5, 20); 
   
   orbitControl(1, 1, 0.1);
 
-  drawStars();
-  
-  // Reset blend mode for any UI or non-glowing elements if you add them later
+  // We are using standard blending to avoid the "Black Screen" bug
   blendMode(BLEND); 
+  
+  drawStars();
 }
 
 function drawStars() {
@@ -71,17 +69,22 @@ function drawStars() {
     translate(s.pos.x, s.pos.y, s.pos.z);
     
     let pulse = sin(frameCount * s.pulseSpeed + s.offset);
-    let intensity = map(pulse, -1, 1, 0.5, 1.2);
+    let intensity = map(pulse, -1, 1, 0.6, 1.2);
     
-    // 1. THE OUTER RADIANCE (The Bloom)
-    // We draw a large, low-opacity point. With blendMode(ADD),
-    // these overlap to create a soft, ethereal fog.
-    stroke(red(s.col), green(s.col), blue(s.col), 40 * intensity);
-    strokeWeight(s.size * 6); 
-    point(0, 0);
+    // THE SAFE GLOW: 
+    // We draw multiple layers with very low alpha. 
+    // Because we aren't using ADD mode, we use a slightly higher 
+    // base alpha to make sure they are visible.
+    for (let i = 3; i > 0; i--) {
+      let layerSize = s.size * (i * 5); 
+      // 30 is high enough to be seen, low enough to look soft
+      stroke(red(s.col), green(s.col), blue(s.col), (30 / i) * intensity);
+      strokeWeight(layerSize);
+      point(0, 0);
+    }
 
-    // 2. THE CORE (The sharp star)
-    stroke(255, 255, 255, 220 * intensity);
+    // THE CORE
+    stroke(255, 255, 255, 200 * intensity);
     strokeWeight(s.size);
     point(0, 0);
     
