@@ -1,7 +1,11 @@
-let surfaceTexture, cloudTexture; 
+// --- Nebula Logic State ---
+let innerGasTexture, outerGasTexture; 
 let currentSeed;    
 let isGenerating = false;
 let isHD = false; 
+
+// Harmony Colors
+let gasColor1, gasColor2, gasColor3;
 
 let bgMusic;
 let musicLoaded = false;
@@ -10,33 +14,53 @@ let musicStarted = false;
 let stars = []; 
 
 // UI Elements
-let detailSlider, seaLevelSlider, tempSlider, cloudDensitySlider, cloudCoverageSlider, muteBtn;
+let roughnessSlider, densitySlider, swirlSlider, detailSlider, coverageSlider, muteBtn;
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
   
-  // High-def starting buffers
-  surfaceTexture = createGraphics(1024, 512);
-  cloudTexture = createGraphics(1024, 512);
+  // High-def textures for gas clouds
+  innerGasTexture = createGraphics(1024, 512);
+  outerGasTexture = createGraphics(1024, 512);
   currentSeed = floor(random(1000000));
 
-  // Static Starfield
-  for (let i = 0; i < 600; i++) {
-    stars.push(p5.Vector.random3D().mult(width * 2.5));
+  // Initialize Palette
+  randomizeColors();
+
+  // Static Starfield (placed far away)
+  for (let i = 0; i < 800; i++) {
+    stars.push(p5.Vector.random3D().mult(width * 3));
   }
 
   setupUI();
   
   soundFormats('mp3', 'ogg');
   bgMusic = loadSound('assets/CloseInTheDistance.mp3', 
-    () => { musicLoaded = true; muteBtn.html('MUSIC READY (Click Gen)'); muteBtn.style('background', '#2e7d32'); },
-    () => { musicLoaded = false; muteBtn.html('MUSIC NOT FOUND (404)'); muteBtn.style('background', '#c62828'); }
+    () => { musicLoaded = true; muteBtn.html('MUSIC READY'); muteBtn.style('background', '#2e7d32'); },
+    () => { musicLoaded = false; muteBtn.html('MUSIC NOT FOUND'); muteBtn.style('background', '#c62828'); }
   );
 
-  generateNewPlanet();
+  generateNebula();
 }
 
-// FBm Noise for crisp details
+/**
+ * Generates a harmonious color palette using HSB logic.
+ * This ensures the colors always look "cosmic" and not muddy.
+ */
+function randomizeColors() {
+  // Temporary switch to HSB to pick colors
+  push();
+  colorMode(HSB, 360, 100, 100);
+  
+  let baseHue = random(360);
+  // Pick analogous colors (shifted hues) for harmony
+  gasColor1 = color(baseHue, 90, 30);                // Dark deep gas
+  gasColor2 = color((baseHue + 30) % 360, 80, 70);   // Glowing mid-tones
+  gasColor3 = color((baseHue + 60) % 360, 30, 100);  // Bright highlights
+  pop(); 
+}
+
+// FBm Noise Engine
 function fractalNoise(x, y, z, octaves, persistence) {
   let total = 0;
   let freq = 1;
@@ -46,18 +70,18 @@ function fractalNoise(x, y, z, octaves, persistence) {
     total += noise(x * freq, y * freq, z * freq) * amp;
     maxVal += amp;
     amp *= persistence;
-    freq *= 2.1; // Slightly non-integer for more "organic" jaggedness
+    freq *= 2.0;
   }
   return total / maxVal;
 }
 
 function draw() {
-  background(5); 
+  background(2, 4, 12); 
   
-  // 1. Draw Starfield (No Depth Testing so stars don't clip)
+  // 1. Draw Starfield
   push();
   noLights();
-  strokeWeight(1.2);
+  strokeWeight(1.5);
   for (let i = 0; i < stars.length; i++) {
     stroke(255, random(150, 255)); 
     point(stars[i].x, stars[i].y, stars[i].z);
@@ -65,94 +89,72 @@ function draw() {
   pop();
 
   orbitControl(); 
-  
-  // Lighting
-  ambientLight(60); 
-  directionalLight(255, 250, 230, 0.5, 0.2, -1);
+  ambientLight(200); // Gas should look "emissive"
 
-  rotateY(frameCount * 0.0015);
-
-  // 2. PLANET SURFACE (Draw this first)
+  // 2. OUTER NEBULA LAYER
   push();
-  texture(surfaceTexture);
+  texture(outerGasTexture);
   noStroke();
-  sphere(height / 3.5, 128, 128); 
+  rotateY(frameCount * 0.0002); 
+  sphere(width * 2.2, 64, 64);
   pop();
 
-  // 3. CLOUDS (Draw second)
+  // 3. INNER NEBULA LAYER (Swirls closer)
   push();
-  texture(cloudTexture);
+  texture(innerGasTexture);
   noStroke();
-  rotateY(frameCount * 0.0005); 
-  sphere(height / 3.45, 128, 128); 
-  pop();
-
-  // 4. ATMOSPHERE GLOW (Draw last with transparency)
-  // This is what was causing the "Black/Zoom" issue. 
-  // We make it slightly larger and very faint.
-  push();
-  fill(100, 180, 255, 25); // Very low alpha (25)
-  noStroke();
-  sphere(height / 3.4, 64, 64);
+  rotateY(-frameCount * 0.0004); 
+  sphere(width * 1.8, 64, 64);
   pop();
 }
 
 function renderWorld() {
-  surfaceTexture.loadPixels();
-  cloudTexture.clear();
-  cloudTexture.loadPixels();
-  noiseSeed(currentSeed);
+  renderLayer(innerGasTexture, 0.8);
+  renderLayer(outerGasTexture, 1.4);
+}
 
-  let r = detailSlider.value();
-  let sl = seaLevelSlider.value();
-  let t = tempSlider.value();
-  let sOff = currentSeed * 1.5; 
+function renderLayer(pg, scaleMod) {
+  pg.clear();
+  pg.loadPixels();
+  noiseSeed(currentSeed + (scaleMod * 500));
 
-  // Optimized loop for 1024x512 resolution
-  for (let y = 0; y < surfaceTexture.height; y++) {
-    for (let x = 0; x < surfaceTexture.width; x++) {
-      let theta = (x / surfaceTexture.width) * TWO_PI;
-      let phi = (y / surfaceTexture.height) * PI;
+  let roughness = roughnessSlider.value();
+  let density = densitySlider.value();
+  let swirl = swirlSlider.value();
+  let detail = detailSlider.value();
+  let coverage = coverageSlider.value();
+  let sOff = currentSeed * 0.05;
+
+  for (let y = 0; y < pg.height; y++) {
+    for (let x = 0; x < pg.width; x++) {
+      let theta = (x / pg.width) * TWO_PI;
+      let phi = (y / pg.height) * PI;
       let nx = cos(theta) * sin(phi) + sOff;
       let ny = sin(theta) * sin(phi) + sOff;
       let nz = cos(phi) + sOff;
 
-      let ns = r * 120; // Scale
+      let ns = roughness * 60 * scaleMod;
       
-      // High-Octave Terrain (8 layers for Ultra detail)
-      let v = fractalNoise(nx * ns, ny * ns, nz * ns, 8, 0.5);
+      // DOMAIN WARPING (The Swirl Math)
+      let ox = fractalNoise(nx * ns, ny * ns, nz * ns, 3, 0.5) * swirl;
+      let oy = fractalNoise((nx + 5) * ns, (ny + 5) * ns, nz * ns, 3, 0.5) * swirl;
+      
+      let v = fractalNoise((nx + ox) * ns, (ny + oy) * ns, nz * ns, detail, 0.5);
 
-      // Normal-Map Style Lighting (makes mountains look "sharp")
-      let v2 = fractalNoise((nx + 0.002) * ns, ny * ns, (nz + 0.002) * ns, 8, 0.5);
-      let lighting = map(v - v2, -0.01, 0.01, 0.6, 1.4);
-
+      // Transparency and Color Mapping
+      let alpha = map(v, coverage, 1, 0, 255, true);
       let col;
-      if (v < sl) {
-        // Deep blue to cyan water
-        col = lerpColor(color(2, 10, 40), color(0, 100, 200), map(v, 0, sl, 0, 1));
+      
+      if (v > 0.75) {
+        col = lerpColor(gasColor2, gasColor3, map(v, 0.75, 1, 0, 1));
       } else {
-        // Advanced Biomes
-        if (v > 0.85 || t < 0.2) col = color(250); // Snow
-        else if (t > 0.8) col = lerpColor(color(210, 180, 140), color(120, 60, 20), v); // Desert
-        else {
-          if (v < sl + 0.02) col = color(220, 200, 160); // Beach
-          else if (v < 0.65) col = color(30, 100, 30); // Forest
-          else col = color(80, 75, 70); // Rock
-        }
-        // Apply "Bump" lighting to land only
-        col = color(red(col) * lighting, green(col) * lighting, blue(col) * lighting);
+        col = lerpColor(gasColor1, gasColor2, map(v, 0, 0.75, 0, 1));
       }
-      surfaceTexture.set(x, y, col);
 
-      // Whispy HD Clouds
-      let cv = fractalNoise(nx * cloudDensitySlider.value() + 500, ny * cloudDensitySlider.value() + 500, nz * cloudDensitySlider.value() + 500, 5, 0.5);
-      if (cv > map(cloudCoverageSlider.value(), 0, 1, 0.85, 0.15)) {
-        cloudTexture.set(x, y, color(255, 210));
-      }
+      pg.set(x, y, color(red(col), green(col), blue(col), alpha * density));
     }
   }
-  surfaceTexture.updatePixels();
-  cloudTexture.updatePixels();
+  pg.updatePixels();
 }
 
 function setupUI() {
@@ -169,23 +171,24 @@ function setupUI() {
     return s;
   }
 
-  detailSlider = addS('TERRAIN ROUGHNESS', 0.005, 0.15, 0.03, 0.001);
-  seaLevelSlider = addS('SEA LEVEL', 0.1, 0.8, 0.45, 0.01);
-  tempSlider = addS('TEMPERATURE', 0, 1, 0.5, 0.01);
-  cloudDensitySlider = addS('CLOUD DENSITY', 1, 20, 8, 0.1);
-  cloudCoverageSlider = addS('CLOUD COVERAGE', 0.1, 0.9, 0.4, 0.01);
+  roughnessSlider = addS('NEBULA ROUGHNESS', 0.01, 0.25, 0.06, 0.01);
+  densitySlider = addS('GAS DENSITY', 0.1, 2.0, 1.0, 0.1);
+  swirlSlider = addS('SWIRLINESS', 0, 3, 1.2, 0.1);
+  detailSlider = addS('FRACTAL DETAIL', 4, 10, 6, 1);
+  coverageSlider = addS('GAS COVERAGE', 0.1, 0.7, 0.4, 0.01);
 
   let btnRow = createDiv('').parent(ui).style('display', 'flex').style('gap', '5px');
-  createButton('FAST').parent(btnRow).style('flex','1').mousePressed(() => { isHD = false; generateNewPlanet(); });
-  createButton('HD').parent(btnRow).style('flex','1').mousePressed(() => { isHD = true; generateNewPlanet(); });
+  createButton('FAST').parent(btnRow).style('flex','1').mousePressed(() => { isHD = false; generateNebula(); });
+  createButton('HD').parent(btnRow).style('flex','1').mousePressed(() => { isHD = true; generateNebula(); });
   
-  createButton('RANDOMIZE WORLD').parent(ui).style('padding', '10px').style('background', '#444').style('color', 'white').mousePressed(() => { 
+  createButton('RANDOMIZE EVERYTHING').parent(ui).style('padding', '10px').style('background', '#2c3e50').style('color', 'white').mousePressed(() => { 
     currentSeed = floor(random(1000000)); 
-    generateNewPlanet(); 
+    randomizeColors();
+    generateNebula(); 
   });
 }
 
-function generateNewPlanet() {
+function generateNebula() {
   if (musicLoaded && !musicStarted) {
     bgMusic.loop();
     bgMusic.setVolume(0.4);
@@ -196,11 +199,10 @@ function generateNewPlanet() {
   if (isGenerating) return; 
   isGenerating = true;
   
-  // Force 1024x512 for HD feel
-  let resX = isHD ? 2048 : 1024; 
-  let resY = isHD ? 1024 : 512;
-  surfaceTexture.resizeCanvas(resX, resY);
-  cloudTexture.resizeCanvas(resX, resY);
+  let resX = isHD ? 1024 : 512; 
+  let resY = isHD ? 512 : 256;
+  innerGasTexture.resizeCanvas(resX, resY);
+  outerGasTexture.resizeCanvas(resX, resY);
 
   setTimeout(() => {
     renderWorld();
