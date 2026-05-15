@@ -1,47 +1,38 @@
-// --- Cosmic Environment State ---
-let stars = [];
-const STAR_COUNT = 1200;
-const CLUSTER_COUNT = 8; 
+let particles = [];
+const CLUSTER_COUNT = 15;
+const STARS_PER_CLUSTER = 60;
+const RADIUS = 600;
 
 function setup() {
-  createCanvas(windowWidth, windowHeight, WEBGL);
-  
-  // This is the "Secret Sauce" for Bloom in p5.js WebGL
-  // blendMode(ADD) makes colors stack and glow where they overlap
-  // Note: We apply this in the draw loop, but it's good to keep in mind!
-  
-  generateConstellations();
+  createCanvas(windowWidth, windowHeight); // 2D mode - no WEBGL
+  generateClusteredUniverse();
 }
 
-function generateConstellations() {
-  stars = [];
-  
+function generateClusteredUniverse() {
+  particles = [];
+  let colors = [
+    [150, 200, 255],
+    [255, 255, 255],
+    [255, 200, 150],
+    [255, 100, 100]
+  ];
+
   for (let i = 0; i < CLUSTER_COUNT; i++) {
-    // Pick a starting point and a direction for a "star ribbon"
-    let startPos = p5.Vector.random3D().mult(random(800, 1500));
-    let direction = p5.Vector.random3D().mult(random(200, 500));
-    
-    let groupSize = floor(random(40, 100));
-    
-    for (let j = 0; j < groupSize; j++) {
-      // Interpolate along the direction to create a "line" or "cloud"
-      let t = j / groupSize;
-      let pathPos = p5.Vector.lerp(createVector(0,0,0), direction, t);
-      
-      // Add some "noise" so the line isn't perfectly straight
-      let noiseOffset = createVector(
-        randomGaussian(0, 100),
-        randomGaussian(0, 100),
-        randomGaussian(0, 100)
-      );
-      
-      let finalPos = p5.Vector.add(startPos, pathPos).add(noiseOffset);
-      
-      stars.push({
-        pos: finalPos,
-        size: random(0.5, 3.5),
-        // Use HSB-style logic for color variety (some blue, some white, some gold)
-        col: color(random(180, 255), random(200, 255), 255), 
+    let theta = random(TWO_PI);
+    let phi = acos(random(-1, 1));
+    let cx = RADIUS * sin(phi) * cos(theta);
+    let cy = RADIUS * sin(phi) * sin(theta);
+    let cz = RADIUS * cos(phi);
+
+    for (let j = 0; j < STARS_PER_CLUSTER; j++) {
+      let offset = p5.Vector.random3D().mult(random(30, 150));
+      let c = random(colors);
+      particles.push({
+        x: cx + offset.x,
+        y: cy + offset.y,
+        z: cz + offset.z,
+        size: random(1, 3.5),
+        col: [...c],
         pulseSpeed: random(0.01, 0.05),
         offset: random(TWO_PI)
       });
@@ -49,55 +40,64 @@ function generateConstellations() {
   }
 }
 
-function draw() {
-  // Use a dark background
-  background(5, 5, 20); 
-  
-  orbitControl(1, 1, 0.1);
+// Manual 3D rotation + perspective projection
+function project(x, y, z, aY, aX) {
+  // Rotate Y
+  let cosY = cos(aY), sinY = sin(aY);
+  let x1 = x * cosY + z * sinY;
+  let z1 = -x * sinY + z * cosY;
 
-  // We are using standard blending to avoid the "Black Screen" bug
-  blendMode(BLEND); 
-  
-  drawStars();
+  // Rotate X
+  let cosX = cos(aX), sinX = sin(aX);
+  let y1 = y * cosX - z1 * sinX;
+  let z2 = y * sinX + z1 * cosX;
+
+  // Perspective
+  let fov = 600;
+  let s = fov / (fov + z2);
+
+  return {
+    sx: x1 * s + width / 2,
+    sy: y1 * s + height / 2,
+    scale: s,
+    z: z2
+  };
 }
 
-function drawStars() {
-  noFill();
-  
-  for (let s of stars) {
-    push();
-    translate(s.pos.x, s.pos.y, s.pos.z);
-    
-    let pulse = sin(frameCount * s.pulseSpeed + s.offset);
-    let intensity = map(pulse, -1, 1, 0.6, 1.2);
-    
-    // THE SAFE GLOW: 
-    // We draw multiple layers with very low alpha. 
-    // Because we aren't using ADD mode, we use a slightly higher 
-    // base alpha to make sure they are visible.
-    for (let i = 3; i > 0; i--) {
-      let layerSize = s.size * (i * 5); 
-      // 30 is high enough to be seen, low enough to look soft
-      stroke(red(s.col), green(s.col), blue(s.col), (30 / i) * intensity);
-      strokeWeight(layerSize);
-      point(0, 0);
-    }
+function draw() {
+  background(0);
 
-    // THE CORE
-    stroke(255, 255, 255, 200 * intensity);
-    strokeWeight(s.size);
-    point(0, 0);
-    
-    pop();
+  let aY = frameCount * 0.001;
+  let aX = frameCount * 0.0005;
+
+  blendMode(ADD);
+  noStroke();
+
+  for (let p of particles) {
+    let proj = project(p.x, p.y, p.z, aY, aX);
+    if (proj.z > -500) { // skip stars behind the camera
+      let pulse = sin(frameCount * p.pulseSpeed + p.offset);
+      let intensity = map(pulse, -1, 1, 0.8, 1.2);
+      let [r, g, b] = p.col;
+      let s = p.size * proj.scale * 2;
+
+      // Bloom layers
+      for (let i = 6; i > 0; i--) {
+        let alpha = (8 / i) * intensity;
+        let size = s * (i * 3);
+        fill(r, g, b, alpha);
+        ellipse(proj.sx, proj.sy, size, size);
+      }
+
+      // Bright core
+      fill(255, 255, 255, 210 * intensity);
+      ellipse(proj.sx, proj.sy, s, s);
+    }
   }
+
+  blendMode(BLEND);
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-}
-
-function keyPressed() {
-  if (key === 'r' || key === 'R') {
-    generateConstellations();
-  }
 }
