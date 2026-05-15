@@ -87,6 +87,127 @@
     #btn-generate:hover {
       background: rgba(150, 200, 255, 0.28);
     }
+
+    #player {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px 24px;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 13px;
+  z-index: 10;
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#player-title {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#progress-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#time-current, #time-total {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  min-width: 30px;
+}
+
+#time-total { text-align: right; }
+
+#progress-bar {
+  flex: 1;
+}
+
+#player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+#btn-play {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(150, 200, 255, 0.4);
+  background: rgba(150, 200, 255, 0.15);
+  color: rgb(150, 200, 255);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#btn-play:hover { background: rgba(150, 200, 255, 0.3); }
+
+#vol-icon {
+  color: rgba(255,255,255,0.4);
+  font-size: 13px;
+}
+
+#volume-bar { width: 80px; }
+
+/* Shared slider styling — applies to all range inputs */
+input[type=range] {
+  appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.15);
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgb(150, 200, 255);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+}
+
+#btn-prev, #btn-next {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(150, 200, 255, 0.3);
+  background: rgba(150, 200, 255, 0.08);
+  color: rgb(150, 200, 255);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#btn-prev:hover, #btn-next:hover {
+  background: rgba(150, 200, 255, 0.22);
+}
+
   </style>
 </head>
 <body>
@@ -121,5 +242,24 @@
   </div>
 
   <script src="sketch.js"></script>
+  <audio id="audio" src="assets/CanYouFeelMyWarmthInSpace.mp3"></audio>
+  <div id="player">
+  <div id="player-title">♪ Can You Feel My Warmth In Space</div>
+
+  <div id="progress-container">
+    <span id="time-current">0:00</span>
+    <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.1" />
+    <span id="time-total">0:00</span>
+  </div>
+
+  <div id="player-controls">
+    <span id="vol-icon">♪</span>
+    <input type="range" id="volume-bar" min="0" max="1" value="0.7" step="0.01" />
+    <button id="btn-prev">⏮</button>
+    <button id="btn-play">▶</button>
+    <button id="btn-next">⏭</button>
+  </div>
+</div>
+</div>
 </body>
 </html>

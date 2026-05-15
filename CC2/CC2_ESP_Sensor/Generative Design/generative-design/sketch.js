@@ -44,6 +44,7 @@ function setup() {
 
   generateClusteredUniverse();
   generateBackgroundStars();
+  setupPlayer();
 }
 
 function generateClusteredUniverse() {
@@ -141,4 +142,113 @@ function drawBackgroundStars() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   generateBackgroundStars();
+}
+
+
+// --- MUSIC PLAYER ---
+function setupPlayer() {
+  const playlist = [
+    { file: "CanYouFeelMyWarmthInSpace.mp3",  title: "Can You Feel My Warmth In Space" },
+    { file: "CloseInTheDistance.mp3",          title: "Close In The Distance" },
+    { file: "ComeAliveLofi.mp3",               title: "Come Alive (Lofi)" },
+    { file: "DawntrailLofi.mp3",               title: "Dawntrail (Lofi)" },
+    { file: "FFMainThemeLofi.mp3",             title: "FF Main Theme (Lofi)" },
+    { file: "FootfallsLofi.mp3",               title: "Footfalls (Lofi)" },
+    { file: "KuganeLofi.mp3",                  title: "Kugane (Lofi)" },
+    { file: "LuminaraLofi.mp3",                title: "Luminara (Lofi)" },
+    { file: "SimpleFoldLofi.mp3",              title: "Simple Fold (Lofi)" },
+    { file: "StarSong.mp3",                    title: "Star Song" },
+    { file: "TornFromHeavenLofi.mp3",          title: "Torn From Heaven (Lofi)" },
+    { file: "ToTheShoresEndLofi.mp3",          title: "To The Shores End (Lofi)" },
+  ];
+
+  let currentIndex = 0;
+
+  const audio     = document.getElementById('audio');
+  const btnPlay   = document.getElementById('btn-play');
+  const btnPrev   = document.getElementById('btn-prev');
+  const btnNext   = document.getElementById('btn-next');
+  const progress  = document.getElementById('progress-bar');
+  const volume    = document.getElementById('volume-bar');
+  const timeCur   = document.getElementById('time-current');
+  const timeTotal = document.getElementById('time-total');
+  const title     = document.getElementById('player-title');
+
+  audio.volume = 0.7;
+
+  function formatTime(s) {
+    let m = floor(s / 60);
+    let sec = floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  function loadTrack(index, autoplay = false) {
+    let track = playlist[index];
+    audio.src = 'assets/' + track.file;
+    title.textContent = '♪ ' + track.title;
+    progress.value = 0;
+    timeCur.textContent = '0:00';
+    timeTotal.textContent = '0:00';
+    btnPlay.textContent = '▶';
+    if (autoplay) {
+      audio.play();
+      btnPlay.textContent = '⏸';
+    }
+  }
+
+  function nextTrack(autoplay = true) {
+    currentIndex = (currentIndex + 1) % playlist.length;
+    loadTrack(currentIndex, autoplay);
+  }
+
+  function prevTrack() {
+    // If more than 3 seconds in, restart current track instead
+    if (audio.currentTime > 3) {
+      audio.currentTime = 0;
+    } else {
+      currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+      loadTrack(currentIndex, !audio.paused);
+    }
+  }
+
+  // Play / Pause
+  btnPlay.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play();
+      btnPlay.textContent = '⏸';
+    } else {
+      audio.pause();
+      btnPlay.textContent = '▶';
+    }
+  });
+
+  btnNext.addEventListener('click', () => nextTrack(!audio.paused));
+  btnPrev.addEventListener('click', () => prevTrack());
+
+  // Auto advance when track ends
+  audio.addEventListener('ended', () => nextTrack(true));
+
+  // Progress bar update
+  audio.addEventListener('timeupdate', () => {
+    let pct = (audio.currentTime / audio.duration) * 100;
+    progress.value = isNaN(pct) ? 0 : pct;
+    timeCur.textContent = formatTime(audio.currentTime);
+  });
+
+  audio.addEventListener('loadedmetadata', () => {
+    timeTotal.textContent = formatTime(audio.duration);
+  });
+
+  // Scrubbing
+  progress.addEventListener('input', () => {
+    audio.currentTime = (progress.value / 100) * audio.duration;
+  });
+
+  // Volume
+  volume.addEventListener('input', () => {
+    audio.volume = volume.value;
+  });
+
+  // Load first track
+  loadTrack(0);
 }
