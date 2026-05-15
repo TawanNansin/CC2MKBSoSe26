@@ -1,15 +1,56 @@
 let particles = [];
-const CLUSTER_COUNT = 15;
 const STARS_PER_CLUSTER = 60;
-const RADIUS = 600;
+
+let bgStars = [];
+const BG_STAR_COUNT = 2000;
+
+// Read from sliders
+function getClusterCount() { return int(document.getElementById('sl-clusters').value); }
+function getRadius()       { return int(document.getElementById('sl-spread').value); }
+function getRotSpeed()     { return map(int(document.getElementById('sl-speed').value), 0, 10, 0, 0.004); }
+
+
+function generateBackgroundStars() {
+  bgStars = [];
+  for (let i = 0; i < BG_STAR_COUNT; i++) {
+    bgStars.push({
+      x: random(width),
+      y: random(height),
+      size: random(0.2, 1.2),
+      brightness: random(80, 200),
+      twinkleSpeed: random(0.005, 0.02),
+      offset: random(TWO_PI)
+    });
+  }
+}
 
 function setup() {
-  createCanvas(windowWidth, windowHeight); // 2D mode - no WEBGL
+  createCanvas(windowWidth, windowHeight);
+
+  // Wire up live value labels
+  document.getElementById('sl-clusters').addEventListener('input', function() {
+    document.getElementById('val-clusters').textContent = this.value;
+  });
+  document.getElementById('sl-spread').addEventListener('input', function() {
+    document.getElementById('val-spread').textContent = this.value;
+  });
+  document.getElementById('sl-speed').addEventListener('input', function() {
+    let v = map(int(this.value), 0, 10, 0, 2).toFixed(1);
+    document.getElementById('val-speed').textContent = v + 'x';
+  });
+
+  // Regenerate button
+  document.getElementById('btn-generate').addEventListener('click', generateClusteredUniverse);
+
   generateClusteredUniverse();
+  generateBackgroundStars();
 }
 
 function generateClusteredUniverse() {
   particles = [];
+  let RADIUS = getRadius();
+  let CLUSTER_COUNT = getClusterCount();
+
   let colors = [
     [150, 200, 255],
     [255, 255, 255],
@@ -40,56 +81,44 @@ function generateClusteredUniverse() {
   }
 }
 
-// Manual 3D rotation + perspective projection
 function project(x, y, z, aY, aX) {
-  // Rotate Y
   let cosY = cos(aY), sinY = sin(aY);
   let x1 = x * cosY + z * sinY;
   let z1 = -x * sinY + z * cosY;
 
-  // Rotate X
   let cosX = cos(aX), sinX = sin(aX);
   let y1 = y * cosX - z1 * sinX;
   let z2 = y * sinX + z1 * cosX;
 
-  // Perspective
   let fov = 600;
   let s = fov / (fov + z2);
 
-  return {
-    sx: x1 * s + width / 2,
-    sy: y1 * s + height / 2,
-    scale: s,
-    z: z2
-  };
+  return { sx: x1 * s + width / 2, sy: y1 * s + height / 2, scale: s, z: z2 };
 }
 
 function draw() {
   background(0);
-
-  let aY = frameCount * 0.001;
-  let aX = frameCount * 0.0005;
+  drawBackgroundStars();
+  let speed = getRotSpeed();
+  let aY = frameCount * speed;
+  let aX = frameCount * speed * 0.5;
 
   blendMode(ADD);
   noStroke();
 
   for (let p of particles) {
     let proj = project(p.x, p.y, p.z, aY, aX);
-    if (proj.z > -500) { // skip stars behind the camera
+    if (proj.z > -500) {
       let pulse = sin(frameCount * p.pulseSpeed + p.offset);
       let intensity = map(pulse, -1, 1, 0.8, 1.2);
       let [r, g, b] = p.col;
       let s = p.size * proj.scale * 2;
 
-      // Bloom layers
       for (let i = 6; i > 0; i--) {
-        let alpha = (8 / i) * intensity;
-        let size = s * (i * 3);
-        fill(r, g, b, alpha);
-        ellipse(proj.sx, proj.sy, size, size);
+        fill(r, g, b, (8 / i) * intensity);
+        ellipse(proj.sx, proj.sy, s * (i * 3), s * (i * 3));
       }
 
-      // Bright core
       fill(255, 255, 255, 210 * intensity);
       ellipse(proj.sx, proj.sy, s, s);
     }
@@ -98,6 +127,18 @@ function draw() {
   blendMode(BLEND);
 }
 
+function drawBackgroundStars() {
+  noStroke();
+  blendMode(BLEND);
+  for (let s of bgStars) {
+    let twinkle = sin(frameCount * s.twinkleSpeed + s.offset);
+    let alpha = map(twinkle, -1, 1, s.brightness * 0.6, s.brightness);
+    fill(255, 255, 255, alpha);
+    ellipse(s.x, s.y, s.size, s.size);
+  }
+}
+
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  generateBackgroundStars();
 }
