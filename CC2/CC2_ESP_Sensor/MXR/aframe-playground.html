@@ -1,0 +1,24 @@
+<html>
+  <head>
+    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.3/dist/aframe-environment-component.min.js"></script>
+    <script src="scatter.js"defer></script>
+  </head>
+  <body>
+    <a-scene>
+        <a-assets>
+        <img id="nebula" src="model-assets/nebula_background.jpg">
+        <a-asset-item id="suzanne" src="model-assets/Grunts1.glb"></a-asset-item>
+        </a-assets>
+        <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="1" position="1 2 1"></a-light>
+
+    <a-gltf-model src="#suzanne" position="0 0 -5"></a-gltf-model>
+
+        <a-sky src="#nebula"></a-sky>
+
+        <a-gltf-model src="Suzanne.glb" position="0 0 -5"></a-gltf-model>
+
+    </a-scene>
+  </body>
+</html>
