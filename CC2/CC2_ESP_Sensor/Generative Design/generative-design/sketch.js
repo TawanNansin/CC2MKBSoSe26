@@ -4,6 +4,11 @@ const STARS_PER_CLUSTER = 60;
 let bgStars = [];
 const BG_STAR_COUNT = 2000;
 
+// Read ?view1 (forward) or ?view2 (backward, 180° offset)
+const urlParams = new URLSearchParams(window.location.search);
+const viewIndex = parseInt(urlParams.get('view')) || 1;
+const VIEW_OFFSET = (viewIndex === 2) ? Math.PI : 0;
+
 // Read from sliders
 function getClusterCount() { return int(document.getElementById('sl-clusters').value); }
 function getRadius()       { return int(document.getElementById('sl-spread').value); }
@@ -83,6 +88,9 @@ function generateClusteredUniverse() {
 }
 
 function project(x, y, z, aY, aX) {
+
+  aY = aY + VIEW_OFFSET; // Apply view offset for forward/backward toggle
+
   let cosY = cos(aY), sinY = sin(aY);
   let x1 = x * cosY + z * sinY;
   let z1 = -x * sinY + z * cosY;
