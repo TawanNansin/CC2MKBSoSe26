@@ -1,6 +1,9 @@
 let particles = [];
 const STARS_PER_CLUSTER = 60;
 
+let nearStars = [];
+const NEAR_STAR_COUNT = 150;
+
 let bgStars = [];
 const BG_STAR_COUNT = 2000;
 
@@ -17,6 +20,19 @@ const VIEW_OFFSET = (viewIndex === 2) ? Math.PI : 0;
 function getClusterCount() { return int(document.getElementById('sl-clusters').value); }
 function getRadius()       { return int(document.getElementById('sl-spread').value); }
 function getRotSpeed()     { return map(int(document.getElementById('sl-speed').value), 0, 10, 0, 0.004); }
+
+function generateNearStars() {
+  nearStars = [];
+  for (let i = 0; i < NEAR_STAR_COUNT; i++) {
+    let pos = p5.Vector.random3D().mult(random(50, 300));
+    nearStars.push({
+      x: pos.x, y: pos.y, z: pos.z,
+      size: random(1,2.5),
+      brightness: random(150,255) 
+    });
+  }
+}
+
 
 function generateBackgroundStars() {
   bgStars = [];
@@ -49,6 +65,7 @@ function setup() {
   document.getElementById('btn-generate').addEventListener('click', generateClusteredUniverse);
 
   generateClusteredUniverse();
+  generateNearStars();
   generateBackgroundStars();
   setupPlayer();
 }
@@ -135,6 +152,14 @@ function draw() {
 
       fill(255, 255, 255, 210 * intensity);
       ellipse(proj.sx, proj.sy, s, s);
+    }
+  }
+
+  for (let p of nearStars) {
+    let proj = project(p.x, p.y, aY + camY + VIEW_OFFSET, aX + camX);
+    if ( proj.z > -500){
+      fill(255,255,255,p.brightness * 0.6);
+      ellipse(proj.sx, proj.sy, p.size * proj.scale * 1.5, p.size * proj.scale * scale * 1.5);
     }
   }
 
@@ -256,4 +281,17 @@ function setupPlayer() {
   });
 
   loadTrack(0);
+  audio.play().then(() => {
+  btnPlay.textContent = '⏸';
+}).catch(() => {
+  // Autoplay blocked — start on first interaction
+  const startOnInteract = () => {
+    audio.play();
+    btnPlay.textContent = '⏸';
+    document.removeEventListener('click', startOnInteract);
+    document.removeEventListener('keydown', startOnInteract);
+  };
+  document.addEventListener('click', startOnInteract);
+  document.addEventListener('keydown', startOnInteract);
+});
 }
