@@ -4,16 +4,19 @@ const STARS_PER_CLUSTER = 60;
 let bgStars = [];
 const BG_STAR_COUNT = 2000;
 
-// Read ?view1 (forward) or ?view2 (backward, 180° offset)
+let camX = 0;
+let camY = 0;
+const CAM_SPEED = 0.02;
+
+// Read ?view=1 (forward) or ?view=2 (backward, 180° offset)
 const urlParams = new URLSearchParams(window.location.search);
-const viewIndex = parseInt(urlParams.get('view')) || 1;
+const viewIndex = parseInt(urlParams.get('view') || '1');
 const VIEW_OFFSET = (viewIndex === 2) ? Math.PI : 0;
 
 // Read from sliders
 function getClusterCount() { return int(document.getElementById('sl-clusters').value); }
 function getRadius()       { return int(document.getElementById('sl-spread').value); }
 function getRotSpeed()     { return map(int(document.getElementById('sl-speed').value), 0, 10, 0, 0.004); }
-
 
 function generateBackgroundStars() {
   bgStars = [];
@@ -32,7 +35,6 @@ function generateBackgroundStars() {
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
-  // Wire up live value labels
   document.getElementById('sl-clusters').addEventListener('input', function() {
     document.getElementById('val-clusters').textContent = this.value;
   });
@@ -44,7 +46,6 @@ function setup() {
     document.getElementById('val-speed').textContent = v + 'x';
   });
 
-  // Regenerate button
   document.getElementById('btn-generate').addEventListener('click', generateClusteredUniverse);
 
   generateClusteredUniverse();
@@ -88,9 +89,6 @@ function generateClusteredUniverse() {
 }
 
 function project(x, y, z, aY, aX) {
-
-  aY = aY + VIEW_OFFSET; // Apply view offset for forward/backward toggle
-
   let cosY = cos(aY), sinY = sin(aY);
   let x1 = x * cosY + z * sinY;
   let z1 = -x * sinY + z * cosY;
@@ -108,15 +106,22 @@ function project(x, y, z, aY, aX) {
 function draw() {
   background(0);
   drawBackgroundStars();
+
   let speed = getRotSpeed();
   let aY = frameCount * speed;
   let aX = frameCount * speed * 0.5;
+
+  // WASD camera control
+  if (keyIsDown(65)) camY -= CAM_SPEED; // A - look left
+  if (keyIsDown(68)) camY += CAM_SPEED; // D - look right
+  if (keyIsDown(87)) camX -= CAM_SPEED; // W - look up
+  if (keyIsDown(83)) camX += CAM_SPEED; // S - look down
 
   blendMode(ADD);
   noStroke();
 
   for (let p of particles) {
-    let proj = project(p.x, p.y, p.z, aY, aX);
+    let proj = project(p.x, p.y, p.z, aY + camY + VIEW_OFFSET, aX + camX);
     if (proj.z > -500) {
       let pulse = sin(frameCount * p.pulseSpeed + p.offset);
       let intensity = map(pulse, -1, 1, 0.8, 1.2);
@@ -151,7 +156,6 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   generateBackgroundStars();
 }
-
 
 // --- MUSIC PLAYER ---
 function setupPlayer() {
@@ -210,7 +214,6 @@ function setupPlayer() {
   }
 
   function prevTrack() {
-    // If more than 3 seconds in, restart current track instead
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
     } else {
@@ -219,7 +222,6 @@ function setupPlayer() {
     }
   }
 
-  // Play / Pause
   btnPlay.addEventListener('click', () => {
     if (audio.paused) {
       audio.play();
@@ -233,10 +235,8 @@ function setupPlayer() {
   btnNext.addEventListener('click', () => nextTrack(!audio.paused));
   btnPrev.addEventListener('click', () => prevTrack());
 
-  // Auto advance when track ends
   audio.addEventListener('ended', () => nextTrack(true));
 
-  // Progress bar update
   audio.addEventListener('timeupdate', () => {
     let pct = (audio.currentTime / audio.duration) * 100;
     progress.value = isNaN(pct) ? 0 : pct;
@@ -247,16 +247,13 @@ function setupPlayer() {
     timeTotal.textContent = formatTime(audio.duration);
   });
 
-  // Scrubbing
   progress.addEventListener('input', () => {
     audio.currentTime = (progress.value / 100) * audio.duration;
   });
 
-  // Volume
   volume.addEventListener('input', () => {
     audio.volume = volume.value;
   });
 
-  // Load first track
   loadTrack(0);
 }
